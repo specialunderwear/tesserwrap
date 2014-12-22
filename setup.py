@@ -5,6 +5,29 @@ from setuptools import setup, Extension
 import multiprocessing
 import distutils.util as du_util
 
+pkgdirs = []
+incdirs = ['/usr/local/include']
+libdirs = ['/usr/local/lib']
+
+def append_env(L, e):
+    v = os.environ.get(e)
+    if v and os.path.exists(v):
+        L.append(v)
+
+append_env(pkgdirs, "LIBTESSERACT")
+
+unprocessed = []
+for arg in sys.argv[1:]:
+    if "=" in arg and arg.startswith("--with-libtesseract"):
+        pkgdirs.append(arg.split("=", 1)[1])
+        continue
+    unprocessed.append(arg)
+sys.argv[1:] = unprocessed
+
+for pkgdir in pkgdirs:
+    incdirs.append(os.path.join(pkgdir, "include"))
+    libdirs.append(os.path.join(pkgdir, "lib"))
+
 
 # Library locator function
 # Looks to see which library is available to link against
@@ -13,7 +36,7 @@ def check_lib_by_name(lib_name, search_path=None):
     platform_opts = ""
     if search_path:
         for path in search_path:
-            s_path = s_path + "-L%s" % path
+            s_path = s_path + "-L%s " % path
 
     # OSX specific (From: jmel - Tesserwrap: #11)
     if "macosx" in du_util.get_platform():
@@ -37,18 +60,16 @@ def find_closest_libname(lib_names, search_path=None):
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-extra_lib_paths = ['/usr/local/lib']
-
 tesseract_possible_names = ['tesseract_api', 'tesseract']
 tesseract_lib_name = find_closest_libname(
     tesseract_possible_names,
-    extra_lib_paths)
+    libdirs)
 
 tesser_cpp = Extension(
     'libtesserwrap',
-    include_dirs=['/usr/local/include'],
+    include_dirs=incdirs,
     libraries=[tesseract_lib_name],
-    library_dirs=extra_lib_paths,
+    library_dirs=libdirs,
     sources=[
         'tesserwrap/cpp/tesseract_ext.cpp',
         'tesserwrap/cpp/tesseract_wrap.cpp'],
